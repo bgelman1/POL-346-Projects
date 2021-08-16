@@ -1,0 +1,581 @@
+---
+title: 'Report 3: ANES'
+author: 'Ben Gelman'
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	fig.pos = "h"
+)
+options(digits = 3)
+set.seed(1234567)
+
+
+
+```
+
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+	echo    = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	fig.pos = "H"
+)
+library(Sleuth3)
+library(janitor)
+library(tidyr)
+library(xtable)
+library(stargazer)
+
+suppressMessages(library(dplyr))
+library(forcats)
+library(ggplot2)
+library(cowplot)
+
+library(margins)
+library(sjPlot)
+theme_set(theme_bw())
+
+library(janitor)
+library(dplyr)
+library(infer)
+library(ggplot2)
+library(ggridges)
+library(stargazer) 
+library(kableExtra)
+library(margins)
+
+
+# install and load packages
+
+remotes::install_github("datalorax/equatiomatic") # install package from GitHub service
+
+
+
+
+library(equatiomatic)
+
+
+```
+
+## 1 Introduction
+
+
+```{asis}
+Did economic anxiety contribute to voters choosing Donald Trump in 2016, or did racial and xenophobic fears play more of a role? The article “Why Is It So Hard for Democracy to Deal With Inequality?” by Thomas Edsall discusses the theory of economist Thomas Piketty, who proposes that voters’ choice of Trump’s brand of populism can be explained by the U.S’s increasing inability to deal with a economic inequality and once solidly Democratic working class voters turning to Trump as an alternative solution to their economic woes, as they did not see the Democratic party as representing their economic interests anymore. In the same article, this theory is contested by several other scholars who maintain that Piketty’s analysis does not lend enough credence to the theory that many voters were motivated primarily by racist and xenophobic attitudes that they saw represented in Trump. This conversation about whether economics or racism/xenophobia best explains this outcome is essential to understanding what factors contributed to one of the most consequential and controversial presidential elections in American history. 
+
+This analysis uses data from the American National Election Survey in 2016. This data included whether voters voted for Trump as well as their levels of economic anxiety, racism, and xenophobia as measured by scales combining the results of multiple questions, which were gathered in order to measure how economic anxiety affects voters' chances of voting for Trump while controlling for racism and xenophobia. Analyses are also done while controlling for other variables such as party identification, ethnicity, and gender.
+
+The evidence found in this study suggests increasing economic anxiety does not have a statistically significant effect on Trump support when other variables such as racism and xenophobia are controlled for. This supports the theory that racism and xenophobia better explain voters' support for Trump compared to economic anxiety. 
+
+
+
+```
+
+
+## 2 Theory
+
+
+```{asis}
+This academic debate has prompted many investigations, including “Trump, Brexit, and the Rise of Populism” which explored the question of whether “economic insecurity,” meaning the economic challenges that come with deindustrialization and globalization, or “cultural backlash,” referring to once dominant racial and ethnic groups expressing their discontent at the new, more socially liberal society, better explains populist phenomena such as Trump and Brexit. This study found more evidence for the latter theory, saying that “The evidence examined in this study suggests that the rise of populist parties reflects, above all, a reaction against a wide range of rapid cultural changes that seem to be eroding the basic values and customs of Western societies” (Inglehart, Norris 30). 
+
+On the other hand, there is also evidence for alternative theories, as shown in the paper “Modern American Populism: Analyzing the Economics Behind the ‘Silent Majority,’ the Tea Party, and Trumpism.” This analysis concludes that economic anxiety offers the best explanation for Trump’s populism, while downplaying the effects that racism and xenophobia had on voters’ decisions. “Although there is a racial or ethnic component to populism, it is not born out of simple prejudice...Economic crisis and anxiety continue to play far larger roles than any other factors in fueling populist attitudes” concludes the author (Patenaude III 827). These contrasting conclusions demonstrate that there remains substantial divergence in how academics are interpreting the phenomenon of Trump support.
+
+
+```
+
+
+
+
+```{r, echo = FALSE}
+
+library(haven)
+
+anes<-read_dta("anes_timeseries_2016_dta/anes_timeseries_2016_Stata12.dta")
+
+#clean names, make new columns
+anes <- anes %>% janitor::clean_names()
+
+anes$vote <- anes$v162034a
+
+anes$party.id<-anes$v161155
+anes$class<-anes$v161307
+anes$ethnicity<-anes$v161310x
+anes$gender <- anes$v161342
+
+anes$mobility <- anes$v162135 
+anes$inequality <- anes$v162116a_1
+anes$jobworry <- anes$v161297 
+
+anes$econstate <- anes$v162280
+anes$econfin <- anes$v162165
+anes$econgood <- anes$v161139
+anes$econnext <- anes$v161141x
+anes$econahead <- anes$v162134
+
+
+
+anes$btry <- anes$v162211
+anes$bviolent <- anes$v162350
+anes$bhard <- anes$v162214
+
+anes$immcult <- anes$v162269 
+anes$immcrime <- anes$v162270 
+anes$immecon <- anes$v162268 
+
+anes$wappr <- anes$v161508 
+anes$wfavors <- anes$v162232 
+anes$wcontrol <- anes$v161509 
+
+anes <- anes %>% dplyr::select( vote, party.id, class,  ethnicity, gender, mobility, inequality, btry, immcult, immcrime, immecon, bviolent, bhard, wappr, wfavors, wcontrol, jobworry, econstate, econgood, econnext, econfin, econahead)
+
+
+```
+
+```{r, echo = FALSE}
+
+
+#recode ethnicity variable
+anes <- anes %>% dplyr::mutate(
+  ethnicity= case_when(
+    ethnicity==1~ "white",
+    ethnicity==2|
+    ethnicity==3|
+    ethnicity==4|
+    ethnicity== 5 ~ "nonwhite",
+  TRUE ~ NA_character_))  
+
+
+
+
+
+#recode party.id variable
+anes <- anes %>% dplyr::mutate(
+  party.id= case_when(
+    party.id==1~ "dem",
+    party.id==2 ~"rep",
+    party.id==3~ "ind",
+  TRUE ~ NA_character_))  
+
+
+#recode class variable
+anes <- anes %>% dplyr::mutate(
+  class= case_when(
+    class==1~"lower",
+    class==2~ "working",
+    class==3 ~"middle",
+    class==4~ "upper",
+    class==-1|
+    class==-8|
+      class==-9 ~"don't know/refuse",
+  TRUE ~ NA_character_))  
+
+
+
+#recode gender variable
+anes <- anes %>% dplyr::mutate(
+  gender= case_when(
+    gender==1~"male",
+    gender==2~ "female",
+    gender==3 ~"other",
+  TRUE ~ NA_character_))  
+
+
+
+#recode vote variable
+anes <- anes %>% dplyr::mutate(
+  vote = case_when(
+    vote == -1 |
+      vote == 4 |
+      vote == 1 |
+      vote == 3|
+      vote == -6|
+        vote == -9|
+        vote == 5|
+        vote == -8 |
+        vote == 9|
+        vote == -7 |
+        vote == 7  ~ 0, 
+
+        vote == 2 ~ 1,
+ 
+ TRUE ~ NA_real_ ) )
+
+
+
+
+
+```
+
+
+
+
+```{r, echo = FALSE}
+#code for economic anxiety scale. 1 is not anxious, 5 is anxious.
+
+anes <- anes %>% dplyr::mutate(
+  econfin= case_when(
+    econfin==1~ 5,
+    econfin==2~ 4,
+    econfin==3 ~ 3,
+     econfin==4 ~ 2,
+     econfin==5 ~ 1,
+  TRUE ~ NA_real_))  
+
+
+
+anes$econahead[anes$econahead  < 1] <- NA
+
+anes$econahead <- as.numeric(anes$econahead)
+
+anes$jobworry[anes$jobworry < 1] <- NA
+
+anes$jobworry <- as.numeric(anes$jobworry)
+
+
+
+
+
+#create scale
+
+anes$anxiety <- anes$jobworry + anes$econahead + anes$econfin
+
+
+
+
+
+
+
+
+ 
+
+```
+
+
+
+```{r, echo = FALSE}
+
+
+
+
+
+
+
+#blacks should try harder. 1 is agree, 5 is disagree. switch values to match scale
+
+anes <- anes %>% dplyr::mutate(
+  bhard= case_when(
+    bhard==1~ 5,
+    bhard==2~ 4,
+    bhard==3 ~ 3,
+     bhard==4 ~ 2,
+     bhard==5 ~ 1,
+  TRUE ~ NA_real_))  
+
+
+
+
+#black don't deserve favors. 1 is agree, 5 is disagree. flip values.
+
+anes <- anes %>% dplyr::mutate(
+  btry= case_when(
+    btry==1~ 5,
+    btry==2~ 4,
+    btry==3 ~ 3,
+     btry==4 ~ 2,
+     btry==5 ~ 1,
+  TRUE ~ NA_real_))  
+
+
+
+#how violent would you rank blacks 1-7, 7 is most violent.
+
+
+
+
+anes$bv <- NULL
+
+
+
+anes <- anes %>% dplyr::mutate(
+  bv= case_when(
+    bviolent==1~ 1,
+     bviolent==2~ 1,
+    bviolent==3 ~ 2,
+     bviolent==4 ~ 3,
+     bviolent==5 ~ 4,
+    bviolent==6 ~ 5,
+    bviolent==7 ~ 5,
+  TRUE ~ NA_real_))  
+
+
+
+
+#create scale
+anes$racism <- anes$bv + anes$btry + anes$bhard
+
+
+
+
+```
+
+
+
+
+
+
+```{r, echo = FALSE}
+
+
+anes$immecon[anes$immecon < 1] <- NA
+
+
+#immigration scale. 1 is pro immigrant, 5 is anti
+
+#immigrants are bad for culture. 1 is agree that culture is harmed by immigrants, 5 is disagree strongly. flip values to match scale.
+anes <- anes %>% dplyr::mutate(
+  immcult= case_when(
+    immcult==1~ 5,
+    immcult==2~ 4,
+    immcult==3 ~ 3,
+    immcult == 4 ~ 2,
+    immcult == 5 ~ 1,
+  TRUE ~ NA_real_))  
+
+
+
+
+#immmigrants are good for economy. 1 is agree, 5 is disagree. don't switch.
+
+
+
+
+#immigrants commit more crime. is agree(anti) 5 is disagree(pro). flip values to match scale
+anes <- anes %>% dplyr::mutate(
+  immcrime= case_when(
+    immcrime==1~ 5,
+    immcrime==2~ 4,
+    immcrime==3 ~ 3,
+    immcrime == 4 ~ 2,
+    immcrime == 5 ~1,
+  TRUE ~ NA_real_))  
+
+
+
+
+#create scale
+anes$xphobia <- anes$immcrime + anes$immecon + anes$immcult
+
+
+
+
+
+
+
+
+
+```
+
+
+## 3 Data
+
+```{asis}
+The source of the data is the 2016 ANES Time Series Study. The dependent variable, whether or not individuals voted for Trump, was obtained through creating a new binary variable, titled “vote,” based on voters’ choices, i.e. Trump or another candidate. The independent variable, economic anxiety, was obtained through the creation of an economic anxiety scale based on 3 questions from the survey. These were “How worried are you about losing your job in the near future? [Not at all, a little, moderately, very, or extremely worried],”  “How much opportunity is there in America today for the average person to get ahead? [A great deal, a lot, a moderate amount, a little, or none],” and “So far as you and your family are concerned, how worried are you about your current financial situation? [Extremely worried, very worried, moderately worried, a little worried, or not at all worried].” 
+
+Each of these responses were originally coded numerically, with the first response signifying a 1, and so on until 5. In order for the three questions to be consistent in their indications of economic anxiety, the third question about individual’s family situations was re-coded, so that the first response would be a 5, and so on until 1. This was necessary in order for the economic anxiety scale to be consistent in its indication of more economic anxiety through higher numerical values. The scores of these three questions were combined to create the scale.
+
+Racism and xenophobia scales were created similarly. Questions that might indicate racist and xenophobic tendencies, such as “‘It’s really a matter of some people not trying hard enough, if blacks would only try harder they could be just as well off as whites.’ (Do You [agree strongly, agree somewhat, neither agree nor disagree, disagree somewhat..with this statement?),” or “(Do you [agree strongly, agree somewhat, neither agree nor disagree, disagree somewhat, or disagree strongly .. with the following statement?) ‘Immigrants increase crime rates in the United States’” were included in the two scales. 
+
+Some of these questions had to be re-coded as described above in order for higher numbers to represent higher levels of xenophobia/racism. One question, which asked respondents to rank the violent nature of black people on a scale of 1-7, (1 being peaceful, 7 being violent), was re-coded so that all responses of 2, 3, 4, 5, and 6 were reduced by 1 point, and all responses of 7 became 5, so that the possible scores for this question would match the 5 possible scores of the other questions on the racism scale. 
+
+Other variables included in the data were ethnicity, originally measured as “White, Black, Asian, Native American, Hispanic, Other” but simplified to a binary indicating white vs. non-white, party identification, measured as Republican, Democrat, or Independent, and gender, measured as male, female, or other. In general, responses of "Don't know," "Refused," or responses indicating a lack of data were marked as NAs. 
+
+Table 1 includes summary statistics for economic anxiety grouped by whether respondents voted for Trump. The median for both groups is 7, with Trump voters having a slightly lower mean of 7.37 vs 7.61 for the non-Trump voters.
+
+
+```
+
+
+```{r, echo = FALSE}
+#summary stats
+
+
+summary_stats <- anes %>% 
+  group_by(vote) %>%
+  summarize(
+    min   = min(anxiety, na.rm=T),
+    median = median(anxiety, na.rm=T),
+    mean=mean(anxiety, na.rm=T),
+    max=max(anxiety, na.rm=t)
+  )
+
+
+table1 <- summary_stats %>%
+    kable(
+      format = "latex",
+      digits = 2,
+      caption = "Summary Statistics for Economic Anxiety: By Vote"
+    ) %>%  
+    kable_styling(
+      bootstrap_options = "striped", # with HTML, add grey stripes 
+      full_width = FALSE             # allow table to be narrower than full page
+      ) 
+
+table1
+```
+
+## 4 Methods
+
+```{asis}
+I used a logistic regression to analyze this data, which is a type of regression typically used when the outcome variable is binary, such as in this case, when my outcome is whether an individual voted for Trump (1) or not (0).  This type of regression reports log odds, so I exponentiated the coefficients in order to report the odds of someone voting for Trump.
+
+Three logistic regression models were utilized. One model regressed voting for Trump on economic anxiety (found by combining the scores of 3 separate questions from ANES), and the second model did the same while controlling for racism, xenophobia, and party. The final model conducts the regression on economic anxiety while controlling for racism, xenophobia, party, ethnicity, and gender. The null hypothesis is that economic anxiety would have no statistically significant effect on whether individuals voted for Trump, and the alternative hypothesis is that it would.
+
+
+I  estimate a logistic regression model in which voting for Trump is a function of economic anxiety and a set of controls. That model can be seen in the equation below:
+
+
+```
+
+
+```{r, echo = FALSE}
+lmbase <- glm(vote ~ anxiety, anes, family = "binomial")
+
+#equatiomatic::extract_eq(lmbase)
+
+lmxenrac <- glm(vote ~ anxiety + xphobia + racism + party.id, anes, family = "binomial")
+
+lmfull <- glm(vote ~ anxiety + xphobia + racism + party.id + ethnicity + gender, anes, family = "binomial")
+
+
+#equatiomatic::extract_eq(lmfull)
+
+
+
+
+```
+
+
+$$ log\left[ \frac { P( \text{vote} = \text{1} ) }{ 1 - P( \text{vote} = \text{1} ) } \right] = \alpha + \beta_{1}(\text{anxiety}) + \beta_{2}(\text{xphobia}) + \beta_{3}(\text{racism}) + \beta_{4}(\text{party.id}) +  $$
+
+
+
+$$ \beta_{6} (\text{ethnicity}_{\text{white}}) + \beta_{7}(\text{gender}) + \epsilon  $$
+
+
+
+
+## 5 Results
+
+```{asis}
+Using stargazer, I obtained odds ratios from the independent variables of the 3 different models, which are displayed in Table 2. In the original model, there is a statistically significant result that increasing economic anxiety was negatively associated with voting for Trump (p <0.05). This first model had an odds ratio of .96, which, since these coefficients have been exponentiated from the original log odds, indicates a negative correlation, i.e. that for each one unit increase in economic anxiety, that individual is .96 times as likely to vote for Trump.
+
+In the second model, I performed the same analysis but controlled for xenophobia, racism, and party identification. In this model, economic anxiety’s effect was similar, with an odds ratio of .96, but less statistically significant (p < 0.1). The effects of xenophobia, racism, and party are all more statistically significant than economic anxiety (p <0.05).
+
+Model 3, the full model, included xenophobia, racism, party, ethnicity, and gender as controls. In this model, increasing economic anxiety was again negatively correlated with voting for Trump, with an odds ratio of .97. However, this effect is not statistically significant in this model. Racism, xenophobia, party, and ethnicity all had statistically significant effects (p <0.05), while gender did not.
+
+The three plots illustrate these findings using the sj_plot package in order to demonstrate predicted probabilities based on model 3, the full model. Plot 1 shows the effect of economic anxiety on the probability of voting for Trump. In the appendix, Plots 2 and 3 display this same relationship, but with individuals broken up by their scores on the racism and xenophobia scales, respectively. Overall, the graphs show that increasing economic anxiety decreases individuals’ chances of voting for Trump, but this effect is not statistically significant in the full model.
+
+The results of these tests could not be interpreted as causal as this is an observational study with no randomized treatment. However, these results can be generalized to the larger population as this survey was conducted on a random sample.
+
+
+
+```
+
+
+```{r, echo = FALSE, results = 'asis'}
+
+stargazer(lmbase, lmxenrac, lmfull, apply.se = exp, apply.coef= exp, type = "latex", header = FALSE, font.size = "tiny", column.sep.width = "0.5pt", p.auto = F, title = "Table 2: Logistic Regression on Economic Anxiety")
+
+
+
+
+econplot <- plot_model(lmfull, type = "pred", 
+           terms = c("anxiety [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]")) +
+  ggtitle("Plot 1: Predicted probability of voting for Trump by Economic Anxiety") + 
+  ylab("Predicted robability of voting for Trump") + 
+  xlab("Economic Anxiety") 
+
+econplot
+
+
+
+write.csv(anes, 'report3data.csv')
+
+```
+
+
+
+
+## 6 Discussion
+
+
+```{asis}
+
+A potential limitation of my findings is the construction of the scales of economic anxiety, racism, and xenophobia I created. While I made an effort to find questions that I thought would accurately illustrate these feelings, these choices were obviously subjective and vulnerable to criticism. For example, while I tried to include questions for the economic anxiety scale that demonstrated financial insecurity and lack of resources, other interpretations of what exactly economic anxiety means might lead other researchers to choose different questions from ANES. For example, an interpretation of economic anxiety that focuses less on personal financial instability and more on general feelings of estrangement from the economy and its new dominant industries might lead to other questions being included in the scale.
+
+In addition, my choices for what questions to include for the racism and xenophobia scales could reasonably be altered. Tweaking these scales to include the responses from other questions, or simply including more questions in general, would be a fair way to extend and/or improve my research. 
+
+Additionally, the very idea that attitudes such as racism and xenophobia can be measured using survey data could be challenged. One might think that people who do actually believe in such ideas would be hesitant to report this in a survey. Other investigations concerning if and how these sentiments can be observed in surveys would certainly be relevant to my study.
+
+
+```
+
+
+## 7 Conclusion
+
+
+```{asis}
+To conclude, my analysis found that economic anxiety's effect on individual's chances of voting for Trump is not statistically significant when controlling for other variables such as racism and xenophobia, and therefore cannot be described as an equally adequate explanation for Trump support in the same manner as racism and xenophobia. This is contrary to theories such as those of Patenaude III, which claim that economic anxiety increases voters’ chances of choosing Trump more than racism or xenophobia. 
+
+These results mean that I cannot reject the null hypothesis of economic anxiety having no statistically significant effect on Trump support. 
+
+This analysis adds to the evidence such as that collected by Ingelhart and Norris suggesting that sentiments such as xenophobia and racism are better explanations for Trump support than economic anxiety, which, according to this analysis, does not have a statistically significant effect on Trump support when controlling for other variables. This evidence lends more credence to the idea that economic anxiety’s contribution to Trump’s victory has been overemphasized, and that more investigation into how racism and xenophobia contributed to this phenomenon is needed.
+
+
+```
+
+
+## 8 Bibliography
+
+
+```{asis}
+1. Edsall, Thomas. “Why Is It So Hard for Democracy to Deal With Inequality?” The New York Times, The New York Times, 15 Feb. 2018, www.nytimes.com/2018/02/15/opinion/democracy-inequality-thomas-piketty.html.
+2. Inglehart, Ronald, and Pippa Norris. "Trump, Brexit, and the Rise of Populism: Economic Have-Nots and Cultural Backlash." HKS Faculty Research Working Paper Series RWP16-026, August 2016.
+3. Patenaude III, Willis. “Modern American Populism: Analyzing the Economics Behind the “Silent Majority,” the Tea Party, and Trumpism.” American Journal of Economics and Sociology, Vol. 78, No. 3 May, 2019.
+4. “The Politics of Financial Insecurity.” Pew Research Center - U.S. Politics & Policy, 31 Dec. 2019, www.people-press.org/2015/01/08/the-politics-of-financial-insecurity-a-democratic-tilt-undercut-by-low-participation/.
+
+
+```
+
+
+## Appendix
+
+```{r, echo = FALSE}
+
+plot2 <- plot_model(lmfull, type = "pred", 
+           terms = c("anxiety [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]", "racism [3, 9,  12, 15]")) +
+  ggtitle("Plot 2: Pred. prob. of voting for Trump by Econ. Anxiety and Racism") + 
+  ylab("Predicted probability of voting for Trump") + 
+  xlab("Economic Anxiety") 
+
+plot2
+
+
+
+plot3 <- plot_model(lmfull, type = "pred", legend.title = c("xenophobia"),
+            terms = c("anxiety [ 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]", "xphobia [3, 9, 12, 15]")) +
+  ggtitle("Plot 3: Pred. prob. of voting for Trump by Econ. Anxiety and Xenophobia") + 
+  ylab("Predicted probability of voting for Trump") + 
+  xlab("Economic Anxiety") 
+
+plot3
+```
+
