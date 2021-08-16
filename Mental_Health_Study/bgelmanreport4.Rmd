@@ -1,0 +1,712 @@
+---
+title: "Report 4"
+author: "Ben Gelman"
+date: "5/3/2020"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r load_packages, echo = FALSE, include=FALSE}
+library(tidyverse)
+library(stargazer)
+library(kableExtra)
+library(MASS)
+library(janitor)
+library(ggplot2)
+library(stargazer)
+library(dplyr)
+
+set.seed(1234567)
+```
+
+
+
+```{r echo = FALSE}
+library(Sleuth3)
+library(janitor)
+library(tidyr)
+library(xtable)
+library(stargazer)
+
+suppressMessages(library(dplyr))
+library(forcats)
+library(ggplot2)
+library(cowplot)
+
+library(margins)
+library(sjPlot)
+theme_set(theme_bw())
+
+library(janitor)
+library(dplyr)
+library(infer)
+library(ggplot2)
+```
+
+```{r echo = FALSE, include = FALSE}
+library(haven)
+getwd()
+# verbose = TRUE tells us which the names of the data objects loaded
+kids <- load("ICPSR_21600-V21/ICPSR_21600/DS0001/21600-0001-Data.rda", verbose = TRUE)  
+
+# If you do not have the ICPSR_21600 data stored in the same folder as your
+# your R Markdown file at the above path, you won't be able to knit code below
+
+# assign data to shorter named file
+
+
+```
+
+## 1 Introduction
+
+```{asis}
+Does learning about suicide in school increase students’ suicidal thoughts? Youth suicide rates have risen in recent years, becoming the second leading cause of death among Americans age 15 to 24 (Santhanam). Amidst this crisis, various methods for how to reduce the suicide rate among American youth have been proposed, and these suggested solutions often include educational programming in schools meant to discuss these issues with children in order to destigmatize the issue, offer students help, and hopefully reduce the overall suicide rate. However, this practice has also raised questions of whether schools discussing suicide may actually contribute to increased suicides among youth, as it may legitimize suicide in the eyes of students, presenting it as a concrete, realistic option. This study aims to investigate whether there are observable effects of suicide education in school on students’ suicidal consideration. It finds that even when controlling for multiple control variables, education about suicide in school decreases individuals’ chances of considering suicide by a statistically significant measure. 
+```
+
+## 2 Theory
+
+```{asis}
+There is debate within education policymakers and mental health experts about whether such educational programs are a sound idea. A study from the Journal of the American Academy of Child & Adolescent Psychiatry titled “Evaluation of a Suicide Awareness Curriculum for High School Students” investigated how these programs influence students’ knowledge of the topic, coping strategies and sense of hopelessness, and found that exposure to a suicide awareness curriculum lowered students’ hopelessness and improved their coping abilities(Spirito et. al). Another paper, “Adolescent Suicide and the Implications for School Response Programs” by John Kalafat argues for a comprehensive, school-based suicide prevention program that can successfully and mindfully engage students on this sensitive topic.
+
+Other papers, such as a policy brief titled “Suicide Prevention in Schools” from UCLA details how there is a concern that suicide education in schools may stigmatize suicidal thoughts and make vulnerable students more hesitant to seek help, and that discussing the issue so openly may “contribute to the type of ‘suicide contagion’ among students that has been reported following a peer’s suicide” This idea, that being exposed to the idea of suicide may increase one’s chances of committing suicide themselves. has been documented by other studies such as “Depression and Exposure to Suicide Predict Suicide Attempt,” which states how “Exposure to suicidal behavior in a friend or family member poses risk equivalent to the risk posed by becoming severely depressed” (Nanayakkara). The UCLA policy brief even cites another study that found no convincing evidence that such programs helped students, and that “when programs were conducted indiscriminately, these programs often displayed negative effects” (Vieland et. al).
+```
+
+
+
+```{r echo = FALSE}
+library(dplyr)
+
+ah1 <- da21600.0001 
+
+ah1 <- ah1 %>%
+  mutate(
+    income = PA55,
+    english = H1ED11,
+    math = H1ED12,
+    social = H1ED13,
+    science = H1ED14,
+    male = BIO_SEX,
+    byear = H1GI1Y,
+    white = H1GI6A,
+    black = H1GI6B,
+    game = H1DA10,
+    slearn = H1TS17,
+    sthink = H1SU1,
+    gun = H1TO53,
+    depress = H1FS6,
+    drug = H1TO41,
+    
+  )
+  
+
+
+
+```
+
+```{r echo = FALSE}
+
+
+
+#depress
+
+ah1 <- ah1 %>%
+  mutate(
+    depress = case_when( 
+        depress == "(0) (0) Never/rarely" ~ 0,
+      depress == "(3) (3) Most/all of the time"  ~ 3,    
+      depress == "(2) (2) A lot of the time" ~ 2,
+        depress == "(1) (1) Sometimes" ~ 1,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+```
+
+
+
+
+```{r echo = FALSE}
+#gun
+
+ah1 <- ah1 %>%
+  mutate(
+    gun = case_when( 
+        gun ==  "(1) (1) Yes" ~ 1,
+     gun == "(0) (0) No (skip to next section)" ~ 0,    
+     TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+```
+
+```{r echo = FALSE}
+
+#suicide
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    slearn = case_when( 
+        slearn ==  "(1) (1) Yes" ~ 1,
+     slearn == "(0) (0) No" ~ 0,    
+     TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+ah1 <- ah1 %>%
+  mutate(
+    sthink = case_when( 
+        sthink ==  "(1) (1) Yes" ~ 1,
+     sthink == "(0) (0) No (skip to Q.4)" ~ 0,    
+     TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+```
+
+
+```{r echo = FALSE}
+#income
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    incbin = case_when( 
+        income >= 47.70075 ~ 1,
+     income < 47.70075  ~ 0,    
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+```
+
+
+```{r echo = FALSE}
+#grades
+
+ #english = H1ED11,
+  #  math = H1ED12,
+   # social = H1ED13,
+    #science = H1ED14,
+
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    english = case_when( 
+        english == "(1) (1) A" ~ 4,
+      english == "(2) (2) B"  ~ 3,    
+      english == "(3) (3) C" ~ 2,
+        english == "(4) (4) D or lower" ~ 1,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+ah1 <- ah1 %>%
+  mutate(
+    math = case_when( 
+        math == "(1) (1) A" ~ 4,
+      math == "(2) (2) B"  ~ 3,    
+      math == "(3) (3) C" ~ 2,
+        math == "(4) (4) D or lower" ~ 1,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+ah1 <- ah1 %>%
+  mutate(
+    social = case_when( 
+        social == "(1) (1) A" ~ 4,
+      social == "(2) (2) B"  ~ 3,    
+      social == "(3) (3) C" ~ 2,
+        social == "(4) (4) D or lower" ~ 1,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+ah1 <- ah1 %>%
+  mutate(
+    science = case_when( 
+        science == "(1) (1) A" ~ 4,
+      science == "(2) (2) B"  ~ 3,    
+      science == "(3) (3) C" ~ 2,
+        science == "(4) (4) D or lower" ~ 1,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+
+
+ah1$grades <- ah1$science + ah1$math + ah1$social + ah1$english
+
+
+
+
+
+
+
+```
+
+
+```{r echo = FALSE}
+# sex = BIO_SEX,
+   # byear = H1GI1Y
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    male = case_when( 
+      male == "(1) (1) Male" ~ 1,
+        male == "(2) (2) Female" ~ 0,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+```
+
+
+```{r echo = FALSE}
+
+
+
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    byear = case_when( 
+      byear == "(74) (74) 1974" ~ 1974,
+       byear == "(75) (75) 1975" ~ 1975,
+       byear == "(76) (76) 1976" ~ 1976,
+       byear == "(77) (77) 1977" ~ 1977,
+       byear == "(78) (78) 1978" ~ 1978,
+       byear == "(79) (79) 1979" ~ 1979,
+       byear == "(80) (80) 1980" ~ 1980,
+       byear == "(81) (81) 1981" ~ 1981,
+       byear == "(82) (82) 1982" ~ 1982,
+       byear == "(83) (83) 1983" ~ 1983,
+      
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+
+
+
+
+#ah1$byear <- as.numeric(ah1$byear)
+
+
+
+```
+
+
+
+```{r echo = FALSE}
+
+
+ah1 <- ah1 %>%
+  mutate(
+    white = case_when( 
+        white == "(1) (1) Marked" ~ 1,
+      white == "(0) (0) Not marked"  ~ 0,    
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+
+ah1 <- ah1 %>%
+  mutate(
+    black = case_when( 
+        black == "(1) (1) Marked" ~ 1,
+      black == "(0) (0) Not marked"  ~ 0,    
+      TRUE ~ NA_real_               # everything not assigned is NA
+      )
+  )
+
+
+
+
+```
+
+## 3 Data
+
+```{asis}
+The source of the data is the National Longitudinal Study of Adolescent to Adult Health (Add Health) a longitudinal study of a nationally representative sample of adolescents in grades 7-12 in the United States during the 1994-95 school year. The dependent variable is measured using the question “During the past 12 months, did you ever seriously think about committing suicide,” with the answers of yes or no coded to 1 or 0, respectively. The independent variable is measured using the question “Please tell me whether you have learned about each of the following things in a class at school... Suicide” with the answers of yes or no coded to 1 or 0.
+ 
+Other variables included in the data include a binary variable signifying whether respondents are white, another for whether they are male, a variable indicating respondents’ income, and a question measuring levels of depression that asks “How often was each of the following things true during the past week? . You felt depressed” with possible responses ranging from never/rarely to “most/all of the time.” This measure of depression was recoded so that 0 would represent never/rarely feeling depressed, 1 being "sometimes", and so on until 3 representing "most/all of the time." 
+
+There is also a variable indicating whether students have access to a gun in their home, and a variable indicating students’ grades. This last variable is a combination of four other variables signifying students’ grades in math, english, science, and social studies on a range of A to D or lower. Each letter grade was converted to a number, with an A being 4, a B as a 3, and so on, and then each respondents’ grades were combined to make one “grades” variable that ranged from 4 to 16.
+ 
+Due to a substantial amount of missingness in the data, specifically for the variables measuring income and grades that might have resulted from systemic bias in the survey, I utilized multiple imputation using the Amelia package to replace all NA values with imputed ones. One row was entirely empty and so any values in it could not be imputed, so I dropped it from the data. Plot 3 in the Appendix demonstrates the missing data in the original dataset, while Plot 4 shows that the data used in the analysis has no missigness.
+
+In order to approximate a “treated” and a “control” group that are similar on observed covariates, I matched these covariates using the CBPS package. An illustration of this can be found in Plot 2 in the Appendix, which demonstrates how the absolute standardized mean differences between the matched data are much closer to zero compared to the unmatched data, proving that the data used in the analysis is less likely to be biased due to imbalanced covariates. 
+
+Table 1 provides summary statistics for all observed covariates and the outcome variable as well as p values indicating whether there are statistically significant differences between the treated and control groups for each covariate. While the p values for  “male and “white” are significant, this version of the data was the best balance achievable. As this table shows, there were 2065 individuals who received some form of suicide education and 4438 that did not. In the control group, 85.9% of individuals had not considered suicide, while 14.1% had. In the treatment group, 87.9% of individuals' had not considered suicide, while 12.1% had. 
+```
+
+```{r echo = FALSE, warning = FALSE, include = FALSE}
+library(naniar)
+library(Amelia)
+library(MatchIt)
+library(dplyr)
+ahnew <- ah1 %>% dplyr::select(slearn, white, income, male, sthink, depress, gun, grades)
+ 
+ahnew$sthink <- as.factor(ahnew$sthink)
+ahnew$slearn <- as.factor(ahnew$slearn)
+
+ahnew$gun <- as.factor(ahnew$gun)
+
+
+ahnew$male <- as.factor(ahnew$male)
+
+
+ahnew$white <- as.factor(ahnew$white)
+
+
+
+head(ahnew)
+
+
+bounds_matrix <- matrix(    # tell amelia to bound some vars
+    ncol  = 3,              # 1st col = variable #, 2nd = min, 3rd = max
+    byrow = TRUE,
+    data  = c(1, 0, 1,    # bounds for slearn, 0 to 1
+              2, 0, 1,     # bounds for white , 0 to 1
+              3, 0, 999, # bounds for income , 0 to 990
+              
+              4,  0,  1,   #bounds for male, 0 to 1
+              5,  0,  1,#bounds for sthink0 to1   
+              6,  0, 3, #depress
+              7, 0,  1, # gun
+              8, 0, 16 # grades
+              )   
+    
+    )
+
+
+set.seed(12345)
+ah_imputed <- amelia(
+  x = ahnew,                   # data set
+  m = 1,
+  noms = c("white", "male", "sthink", "gun", "slearn"),
+    bounds = bounds_matrix,
+  
+             
+  )
+ah_final <- ah_imputed$imputations$imp1
+
+ah_final[is.na(ah_final$depress),]
+
+ah_final <- ah_final[-4683,]
+```
+
+```{r, echo = FALSE, include = FALSE}
+library(MatchIt)
+library(cobalt)
+
+library(CBPS)
+
+match_out1 <- CBPS(
+  formula = slearn ~ income + depress + gun + male + white + grades,  # treatment - matched characteristic
+  data = ah_final 
+)
+```
+
+
+```{r, echo = FALSE,fig.height = 4, fig.width = 5, fig.align = "center"}
+matched1 <- match.data(match_out1)
+
+```
+
+
+\footnotesize
+```{r, echo = FALSE, results = 'asis'}
+#prove that covariates are balanced
+
+
+library(arsenal)
+
+var_names <- list(
+  income    = "Income",
+  white          = "White",
+  depress        = "Depression",
+  gun = "Gun",
+  male = "Male",
+  grades = "Grades",
+  sthink = "Considered Suicide"
+)
+
+
+
+tableby(slearn ~ income + depress + gun + male + white + grades + sthink,
+        numeric.stats    = c("N", "mean", "sd"),
+                             # only one summary stat
+        numeric.simplify = TRUE,     # put on the same row as variable name
+        numeric.test     = "kwt",    # manually set test types
+        cat.test         = "chisq",  # manually set test types
+        data             = matched1,
+        test             = TRUE,     # set test to true (remember to pair w/ mean/sd)
+        digits           = 2) %>% 
+  summary(title = "Covariate Balance on Matched Characteristics, Grouped by Whether Students Received Suicide Education", labelTranslations = var_names,
+          pfootnote = FALSE)
+
+```
+\normalsize
+
+
+## 4 Methods
+
+```{asis}
+I used a logistic regression to analyze this data, which is a type of regression typically used when the outcome variable is binary, such as in this case, when my outcome is whether students considered suicide in the past 12 months (1) or not (0). This type of regression reports log odds, so I exponentiated the coefficients in order to report the odds of an individual considering suicide.
+ 
+I utilized three logistic regression models. The first regressed considering suicide on being taught about suicide in school, and the second model did the same while controlling for levels of depression, access to a gun in the home, and students’ grades. These covariates were chosen because being depressed, having easy access to a deadly weapon, and having trouble in school might reasonably affect whether children would consider suicide. The third model conducted the regression while controlling for depression, access to a gun, grades, income, being male, and being white These additional covariates were chosen since suicidal ideation might be expected to vary by socioeconomic status, and that differences across gender and race may also affect suicidal thoughts. 
+
+I chose the third model as my primary model based on analyzing the three options using Chi Squared tests. As demonstrated in the low p values of Tables 3 and 4 in the Appendix, the addition of more controls yielded significant amounts of explanatory power. 
+
+The null hypothesis is that being taught about suicide in school would have no statistically significant effect on whether individuals would have considered suicide in the past 12 months.
+
+ 
+I estimate a logistic regression model in which considering suicide is a function of being taught about suicide in school and a set of controls. That model can be seen in the equation below:
+```
+
+```{r echo = FALSE}
+library(stargazer)
+
+
+matched1 <- matched1 %>%
+  mutate(
+    slearn1 = case_when( 
+        slearn == 0 ~ "No",
+      slearn == 1  ~ "Yes",    
+      
+      TRUE ~ NA_character_               # everything not assigned is NA
+      )
+  )
+
+matched1$slearn1 <- as.factor(matched1$slearn1)
+
+dataMaid::makeCodebook(matched1)
+
+write.csv(matched1, "bgelmanreport4data.csv")
+```
+
+
+
+```{r echo = FALSE}
+#regressions
+
+lm1 <- glm(sthink ~ slearn1, matched1, family = "binomial")
+
+
+lm2 <- glm(sthink ~slearn1 + gun + grades + depress, matched1, family = "binomial")
+
+
+lm3 <- glm(sthink ~ slearn1 + white + income + gun + grades + depress + male, matched1, family = "binomial")
+```
+
+$$
+\begin{aligned}
+\log\left[ \frac { P( \text{sthink} = \text{1} ) }{ 1 - P( \text{sthink} = \text{1} ) } \right] &= \alpha + \beta_{1}(\text{slearn}_{\text{1}}) + \beta_{2}(\text{white}_{\text{1}}) + \beta_{3}(\text{income}) + \beta_{4}(\text{gun}_{\text{1}}) + \beta_{5}(\text{grades})\ + \\
+&\quad \beta_{6}(\text{depress}) + \beta_{7}(\text{male}_{\text{1}}) + \epsilon
+\end{aligned}
+$$
+
+## 5 Results
+
+
+```{asis}
+Using stargazer, I obtained odds ratios from the independent variables of the 3 different models, which are displayed in Table 2. In the original model, there is a statistically significant result (p<0.05) that being educated about suicide in school reduces individuals’ chances of considering suicide. This first model had an odds ratio of .84, which, since these coefficients have been exponentiated from the original log odds, indicates a negative correlation, i.e. that being taught about suicide in school makes individuals .84 times as likely to consider suicide. 
+ 
+In the second model, I performed the same analysis but controlled for gun access, depression, and grades. In this model, being educated about suicide had a similar odds ratio of .81, and this result was still statistically significant (p < 0.05). Gun access and depression both increased individuals’’ chances of considering suicide by statistically significant measures (p <0.01) while higher grades lowered individuals’ chances by a statistically significant measure (p <0.01). 
+ 
+The full model included gun access, depression, grades, race, income, and sex as controls. In this model, being educated about suicide in school now had an even more statistically significant coefficient of .78 (p <0.01), meaning that in this model students who had been educated about suicide were .78 times as likely to consider suicide. The effects of depression, gun access, and grades also remained similar in magnitude and statistical significance. Being white increased students’ chances of considering suicide by a statistically significant measure (p<0.01), while being male reduced them by a statically significant measure (p <0.01). The only covariate that did not have a statistically significant effect was income. 
+ 
+I use three plots to illustrate these findings using the sj_plot package in order to demonstrate predicted probabilities based on model 3, the full model. Plot 1 shows the effect of being educated about suicide on considering suicide. In the Appendix, Plots 5 and 6 display this same relationship, but with individuals broken up by whether they had access to a gun in their home and their levels of depression, respectively. Finally, Plot 7 shows the relationship between suicide education and suicidal ideation, with individuals broken up by their scores on the grades variable. Scores on the "grades" scale of 4, 8, 12, and 16 were marked as D, C, B, and A, respectively. Overall, the graphs show that being educated about suicide in school decreases individuals’ chances of considering suicide.
+ 
+The results of these tests could not be interpreted as causal as this is an observational study with no randomized treatment. The treatment is approximately random given that there is covariate balance across the measured potential confounders. However, it is possible that there are in fact other unobserved confounders that are not being accounted for and are imbalanced between the treatment and control groups. These results can be generalized to the larger population of adolescents in grades 7-12 as this survey was conducted on a representative sample of that subset of the population. However, this study's findings may not be applicable to individuals outside of that age group. 
+```
+
+
+```{r echo = FALSE, results = 'asis', float = FALSE}
+stargazer(lm1, lm2, lm3, apply.se = exp, apply.coef= exp, type = "latex", header = FALSE, font.size = "tiny", column.sep.width = "0.5pt", p.auto = F, title = "Logistic Regression on Exposure to Suicide Education", covariate.labels = c("Suicide Education", "White", "Income", "Gun Access", "Grades","Depressed", "Male"), dep.var.labels   = "Suicide Consideration")
+```
+
+
+
+
+```{r echo = FALSE, results = 'asis', fig.height = 3, fig.width = 5, fig.align = "center"}
+#plots
+library(sjPlot)
+library(ggplot2)
+
+
+
+
+
+plot1  <- plot_model(lm3, type = "pred", terms = c("slearn1")) + ggtitle ("Plot 1: Pred. Prob. of Considering Suicide") + xlab("Suicide Education In School") + ylab("Consider Suicide") 
+plot1
+
+
+
+
+
+```
+
+
+## 6 Discussion
+
+```{asis}
+One possible limitation to my findings is the fact that my treatment variable is binary, i.e. whether students were exposed to suicide education. The real relationship between suicide education in schools and students’ considering suicide may in fact be much more complex and have more to do with the quality of suicide-related education that is presented in schools. An analysis that could test for different varieties of suicide education in schools might yield more meaningful results.
+ 
+In addition, while I believe my choices of control variables were reasonable and relatively comprehensive, there could be many other potential confounders influencing the observed relationship. These may include more detailed variables describing students' mental health besides their reported levels of depression, their relationships with their families and friends, future prospects, etc. 
+ 
+Lastly, the question for whether individuals recently considered suicide may be subject to the bias of the respondent, who may be reluctant to admit such a personal and troubling detail to a survey such as Add Health. This has the potential to bias my results, so improved research might find a way to obtain such data in a way where it can be expected to be more accurate. However, the ethics of probing too far into the private thoughts of these children, especially concerning such a sensitive topic, should certainly be a priority in such research, and would need to be considered in detail before moving further. 
+```
+
+
+## 7 Conclusion
+
+
+```{asis}
+To conclude, even after controlling for potential confounders such as gun access, depression, and grades, suicide education in schools was found to be associated with reduced chances of considering suicide by a statistically significant measure. This is consistent with the theories of Kalafat and others who push for more suicide education in schools as a means of improving students’ coping mechanisms and mental health.
+ 
+These results indicate that I can reject the null hypothesis that being educated about suicide in schools would have no effect on individuals considering suicide. 
+
+This evidence runs contrary to some of the theories outlined in the UCLA report, which state that suicide-related programming in schools might actually increases chances of suicide as it presents it as a practical, tangible option for impressionable youths. While this study may be limited by only measuring suicide education as a binary and not in a more qualitative, nuanced way, it does suggest that education about suicide in schools can have positive effects and adds to the evidence that it should be considered a legitimate and useful option in the effort to prevent youth suicide. 
+```
+
+
+
+## 8 Bibliography
+
+```{asis}
+Fong, Christian, Ratkovic, Mark, and Imai, Kosuke "CBPS: R Package for Covariate Balancing Propensity Score." Available through The Comprehensive R Archive Network. 2014.
+
+Harris, Kathleen Mullan, and Udry, J. Richard. "National Longitudinal Study of Adolescent to Adult Health (Add Health)," 1994-2008 [Public Use]. Carolina Population Center, University of North Carolina-Chapel Hill [distributor], Inter-university Consortium for Political and Social Research [distributor], 2018-08-06. https://doi.org/10.3886/ICPSR21600.v21.
+
+
+Hazell, Phillip, King, Ray. "Arguments for and against Teaching Suicide Prevention in Schools.” Australian & New Zealand Journal of Psychiatry, vol. 30, no. 5, Oct. 1996, pp. 633–642, doi:10.3109/00048679609062659.
+
+Honaker, J, King, G, Blackwell, M (2011). "Amelia II: A Program for Missing Data.” Journal of Statistical Software, vol. 45 no. 7, 2011 pp, 1–47. http://www.jstatsoft.org/v45/i07/.
+
+Kalafat, John. “Adolescent Suicide and the Implications for School Response Programs.” The School Counselor, vol. 37, no. 5, 1990, pp. 359–369. JSTOR, www.jstor.org/stable/23900691. Accessed 3 May 2020.
+
+Nanayakkara, Sonali & Misch, Diane & Chang, Laura & Henry, David. "Depression and exposure to suicide predict suicide attempt. Depression and anxiety." vol 30. no. 10, 2013. 1002/da.22143. 
+
+Santhanam, Laura. "Youth Suicide Rates Are on the Rise in the U.S." PBS, Public Broadcasting Service, 18 Oct. 2019, www.pbs.org/newshour/health/youth-suicide-rates-are-on-the-rise-in-the-u-s.
+
+Spirito, Anthony et al., "Evaluation of a Suicide Awareness Curriculum for High School Students," Journal of the American Academy of Child & Adolescent Psychiatry, vol. 27, no. 6, 1988, pp. 705 - 711.
+
+Center for Mental Health in Schools, UCLA. "Suicide Prevention in Schools." 
+
+Vieland , V., Whittle, B., Garland, A., Hicks, R, et al. "The impact of curriculum- based suicide prevention programs for teenagers: An eighteen-month follow-up." Journal of the American Academy of Child Adolescent Psychiatry, vol. 37, 1991, pp. 484-487. 
+
+```
+
+
+## Appendix
+
+
+```{r echo = FALSE}
+library(ggplot2)
+library(sjPlot)
+
+
+
+love.plot(match_out1, abs = TRUE) + ggtitle("Plot 2: Covariate Balance Pre and Post Matching") + scale_y_discrete(labels = c("Grades", "White", "Male", "Gun", "Depression", "Income", "Distance"))
+
+
+
+gg_miss_var(ahnew) + ggtitle("Plot 3: Missingness In Original Data") + scale_x_discrete( labels = c("Depression", "Grades", "Gun", "Income", "Male", "Suicide Education", "Suicide Consideration", "White"), limits = c("depress", "grades", "gun", "income", "male", "slearn1", "sthink", "white"))
+
+
+gg_miss_var(ah_final) + ggtitle("Plot 4: Missingness In Imputed Data") + scale_x_discrete(labels = c("Depression", "Grades", "Gun", "Income", "Male", "Suicide Education", "Suicide Consideration", "White"))
+```
+
+```{r, echo = FALSE, results = "asis"}
+table3 <- anova(lm1, lm2, test = "Chisq")
+table4 <- anova(lm2, lm3, test = "Chisq")
+
+
+table3 %>%
+  kable(
+ # format ='latex',
+  caption ='Chi Squared Analysis Between Model 1 and 2',
+  booktabs = TRUE,
+  digits = 2) %>% 
+  
+  kable_styling(
+    latex_options = "hold_position",
+    bootstrap_options = "striped",full_width = FALSE)
+
+
+
+
+
+table4 %>%
+  kable(
+ # format ='latex',
+  caption ='Chi Squared Analysis Between Model 2 and 3',
+  booktabs = TRUE,
+  digits = 2) %>% 
+  
+  kable_styling(
+    latex_options = "hold_position",
+    bootstrap_options = "striped",full_width = FALSE)
+
+
+
+```
+
+
+```{r echo = FALSE}
+plot5  <- plot_model(lm3, type = "pred", terms = c("slearn1 [No, Yes]","grades[4, 8, 12, 16]")) + ggtitle ("Plot 5: Pred. Prob. of Considering Suicide") + xlab("Suicide Education In School") + ylab("Consider Suicide") +  scale_color_discrete( labels = c("D", "C", "B", "A")) 
+plot5
+
+
+
+plot6 <- plot_model(lm3, type = "pred", terms = c("slearn1","gun[0, 1]") ) + ggtitle ("Plot 6: Pred. Prob. of Considering Suicide") + xlab("Suicide Education In School")  + ylab("Consider Suicide")
+
+plot6
+
+
+
+
+plot7 <- plot_model(lm3, type = "pred", terms = c("slearn1","depress[0, 1, 2, 3]")) + ggtitle ("Plot 7: Pred. Prob. of Considering Suicide") + xlab("Suicide Education In School") + ylab("Consider Suicide") 
+
+plot7
+
+  
+
+```
+
+
+
+
+
+
