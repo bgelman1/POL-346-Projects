@@ -6,7 +6,7 @@ The first project, in the folder "2016 Election Report" was an analysis of votin
 
 
 
-The second project, in the folder "Mental_Health_Study" examined whether exposure to anti-suicide education actually ncreases youths' chances of considering suicide, which is a debate amonge xperts in psychology and education.
+The second project, in the folder "Mental_Health_Study" examined whether exposure to anti-suicide education actually ncreases youths' chances of considering suicide, which is a debate amonge experts in psychology and education.
 
 
 
